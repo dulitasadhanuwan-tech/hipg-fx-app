@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HIPG FX App</title>
+  <meta name="description" content="Hambantota International Port Group Official CBSL Automated Foreign Exchange Portal">
+  <meta name="theme-color" content="#002B49">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HIPG FX App">
+
+  <!-- Icons & Web App Manifest (Relative paths for GitHub Pages) -->
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="alternate icon" type="image/x-icon" href="./favicon.ico">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="manifest" href="./manifest.json">
+
+  <!-- External Libraries via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Pre-loaded 2026 CBSL Historical Dataset (Immediate zero-latency bootstrap) -->
+  <script src="./data/cbsl_historical_data.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              navy: '#002B49',
+              navyDark: '#001A2C',
+              navyLight: '#0A3B63',
+              amber: '#f59e0b',
+              amberDark: '#d97706',
+              emerald: '#10b981',
+              emeraldDark: '#059669',
+              slateLight: '#f8fafc',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f1f5f9;
+      color: #1e293b;
+    }
+    .font-mono-numbers {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="bg-brand-navy text-white shadow-lg sticky top-0 z-40 border-b border-brand-navyLight">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo and App Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-amber to-amber-600 flex items-center justify-center font-black text-brand-navyDark text-xl shadow-md tracking-wider">
+            HIPG
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h1 class="text-lg font-bold tracking-tight">Hambantota International Port Group</h1>
+              <span class="text-xs bg-brand-navyLight text-brand-amber font-semibold px-2 py-0.5 rounded border border-brand-navyLight">Finance Dept</span>
+            </div>
+            <p class="text-xs text-slate-300 font-medium">Official CBSL FX Rate Portal — GitHub Pages Cloud Edition</p>
+          </div>
+        </div>
+
+        <!-- Header Actions: Sync, Manual Input, Audit, Briefing -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <!-- Live CBSL Sync Button -->
+          <button id="btnSyncNow" onclick="triggerClientSync()" class="flex items-center space-x-1.5 bg-brand-amber hover:bg-brand-amberDark text-brand-navyDark font-bold px-3.5 py-1.5 rounded-lg text-xs transition shadow hover:shadow-md transform active:scale-95">
+            <svg id="syncIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span id="syncText">Sync CBSL Rates</span>
+          </button>
+
+          <!-- Manual / Paste Update Button (Fail-Safe) -->
+          <button onclick="openManualInputModal()" class="hidden sm:flex items-center space-x-1 bg-brand-navyLight hover:bg-slate-700 text-slate-200 font-medium px-3 py-1.5 rounded-lg text-xs border border-slate-700 transition" title="Manual Rate Entry & Smart Web Paste">
+            <svg class="w-4 h-4 text-brand-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span>Update / Paste</span>
+          </button>
+
+          <!-- Audit Modal Button -->
+          <button onclick="openAuditModal()" class="flex items-center space-x-1 bg-brand-navyLight hover:bg-slate-700 text-white font-medium px-3 py-1.5 rounded-lg text-xs border border-slate-700 transition">
+            <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Audit</span>
+          </button>
+
+          <!-- Briefing Generator -->
+          <button onclick="openBriefingModal()" class="flex items-center space-x-1 bg-brand-navyLight hover:bg-slate-700 text-brand-amber font-medium px-3 py-1.5 rounded-lg text-xs border border-slate-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span>Share</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed top-20 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- MAIN BODY -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- DATA QUALITY & INTERNAL CONTROLS BANNER -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-5 py-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-navy text-white">
+              Data Quality & Governance
+            </span>
+            <div id="statusBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>
+              Checking CBSL Status...
+            </div>
+            <div id="coverageBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              9/9 Currencies Verified
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Strict Zero-Estimation Rule: Official Central Bank of Sri Lanka observations only. No carry-forward, no synthetic rates, no holiday interpolation.
+          </p>
+        </div>
+
+        <!-- Quick Summary Stats Grid -->
+        <div class="flex items-center space-x-6 text-xs text-slate-600">
+          <div>
+            <span class="block text-slate-400 font-medium uppercase text-[10px] tracking-wider">Colombo Business Date</span>
+            <span id="colomboDateLabel" class="font-bold text-slate-800 font-mono-numbers">--</span>
+          </div>
+          <div class="border-l pl-4 border-slate-200">
+            <span class="block text-slate-400 font-medium uppercase text-[10px] tracking-wider">Latest Official CBSL Pub</span>
+            <span id="latestPubDateLabel" class="font-bold text-slate-800 font-mono-numbers">--</span>
+          </div>
+          <div class="border-l pl-4 border-slate-200">
+            <span class="block text-slate-400 font-medium uppercase text-[10px] tracking-wider">Total Trading Days Stored</span>
+            <span id="totalDaysLabel" class="font-bold text-slate-800 font-mono-numbers">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Warning Strip (Appears dynamically if missing rates exist or offline) -->
+      <div id="warningStrip" class="hidden px-5 py-2.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span id="warningStripText">Data notice active.</span>
+        </div>
+        <button onclick="openManualInputModal()" class="text-[11px] font-semibold text-amber-800 underline">Enter / Paste Rates Manually</button>
+      </div>
+    </div>
+
+    <!-- 9-CURRENCY QUICK SELECTION & MATRIX BAR -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center space-x-2">
+          <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Official 9 CBSL Currencies Board</h2>
+          <span class="text-xs text-slate-400 font-medium hidden sm:inline">(Click any currency to inspect multi-horizon analytics)</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="downloadMultiSheetExcel()" class="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Export Official Excel (.xlsx)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Currency Cards Grid -->
+      <div id="currencyGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-2.5">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- MULTI-HORIZON ROLLUP STRIP (Daily, Weekly, Monthly, Yearly) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- 1. Daily Official Card -->
+      <div onclick="selectHorizon('daily')" class="cursor-pointer bg-white rounded-xl shadow-sm border-2 transition-all p-4 relative overflow-hidden group hover:shadow-md" id="horizonCard-daily">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Daily View</span>
+          <span class="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold border border-slate-200">Official CBSL</span>
+        </div>
+        <div class="mt-2">
+          <span class="text-2xl font-black text-slate-800 font-mono-numbers" id="cardDailyIndicative">--</span>
+          <span class="text-xs text-slate-400 font-medium block">Spot Indicative (LKR)</span>
+        </div>
+        <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-mono-numbers">
+          <div class="text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">TT Buying</span>
+            <span id="cardDailyBuy" class="font-semibold text-emerald-700">--</span>
+          </div>
+          <div class="text-right text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">TT Selling</span>
+            <span id="cardDailySell" class="font-semibold text-amber-700">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Weekly Avg Card -->
+      <div onclick="selectHorizon('weekly')" class="cursor-pointer bg-white rounded-xl shadow-sm border-2 transition-all p-4 relative overflow-hidden group hover:shadow-md" id="horizonCard-weekly">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Weekly Rollup</span>
+          <span class="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold border border-blue-200" id="cardWeeklyObs">Avg (n=-- obs)</span>
+        </div>
+        <div class="mt-2">
+          <span class="text-2xl font-black text-slate-800 font-mono-numbers" id="cardWeeklyAvg">--</span>
+          <span class="text-xs text-slate-400 font-medium block">Avg Indicative (LKR)</span>
+        </div>
+        <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-mono-numbers">
+          <div class="text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">Avg TT Buy</span>
+            <span id="cardWeeklyBuy" class="font-semibold text-emerald-700">--</span>
+          </div>
+          <div class="text-right text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">Avg TT Sell</span>
+            <span id="cardWeeklySell" class="font-semibold text-amber-700">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Monthly Avg Card -->
+      <div onclick="selectHorizon('monthly')" class="cursor-pointer bg-white rounded-xl shadow-sm border-2 transition-all p-4 relative overflow-hidden group hover:shadow-md" id="horizonCard-monthly">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Monthly Rollup</span>
+          <span class="text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-semibold border border-purple-200" id="cardMonthlyObs">Avg (n=-- obs)</span>
+        </div>
+        <div class="mt-2">
+          <span class="text-2xl font-black text-slate-800 font-mono-numbers" id="cardMonthlyAvg">--</span>
+          <span class="text-xs text-slate-400 font-medium block">Avg Indicative (LKR)</span>
+        </div>
+        <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-mono-numbers">
+          <div class="text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">Avg TT Buy</span>
+            <span id="cardMonthlyBuy" class="font-semibold text-emerald-700">--</span>
+          </div>
+          <div class="text-right text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">Avg TT Sell</span>
+            <span id="cardMonthlySell" class="font-semibold text-amber-700">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Yearly Avg Card -->
+      <div onclick="selectHorizon('yearly')" class="cursor-pointer bg-white rounded-xl shadow-sm border-2 transition-all p-4 relative overflow-hidden group hover:shadow-md" id="horizonCard-yearly">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Yearly Rollup</span>
+          <span class="text-[11px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-semibold border border-amber-200" id="cardYearlyObs">Avg (n=-- obs)</span>
+        </div>
+        <div class="mt-2">
+          <span class="text-2xl font-black text-slate-800 font-mono-numbers" id="cardYearlyAvg">--</span>
+          <span class="text-xs text-slate-400 font-medium block">Avg Indicative (LKR)</span>
+        </div>
+        <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-mono-numbers">
+          <div class="text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">Avg TT Buy</span>
+            <span id="cardYearlyBuy" class="font-semibold text-emerald-700">--</span>
+          </div>
+          <div class="text-right text-slate-600">
+            <span class="text-[10px] text-slate-400 block font-sans">Avg TT Sell</span>
+            <span id="cardYearlySell" class="font-semibold text-amber-700">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INTERACTIVE ANALYTICS & DETAIL SECTION -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- LEFT 2 COLS: Trend Chart & Controls -->
+      <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+              <span id="chartCurrencyTitle" class="text-brand-navy">USD</span>
+              <span class="text-slate-400 font-normal">|</span>
+              <span id="chartSubTitle" class="text-xs font-medium text-slate-500">Official Rate Trend & Spread</span>
+            </h3>
+            <p class="text-xs text-slate-400">3-Line Official Tracking: TT Selling (Amber), TT Buying (Emerald), Spot Indicative (Navy)</p>
+          </div>
+
+          <!-- Time Range Selector for Chart -->
+          <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600">
+            <button onclick="setChartRange(30)" id="btnRange30" class="px-2.5 py-1 rounded transition hover:text-slate-900">30D</button>
+            <button onclick="setChartRange(90)" id="btnRange90" class="px-2.5 py-1 rounded bg-white shadow-xs font-bold text-brand-navy transition">90D</button>
+            <button onclick="setChartRange(180)" id="btnRange180" class="px-2.5 py-1 rounded transition hover:text-slate-900">180D</button>
+            <button onclick="setChartRange(365)" id="btnRange365" class="px-2.5 py-1 rounded transition hover:text-slate-900">1Y</button>
+          </div>
+        </div>
+
+        <!-- Chart Container -->
+        <div class="relative h-72 w-full">
+          <canvas id="rateTrendChart"></canvas>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+          <div class="flex items-center space-x-4">
+            <span class="flex items-center"><span class="w-3 h-0.5 bg-[#002B49] mr-1.5"></span> Indicative Spot</span>
+            <span class="flex items-center"><span class="w-3 h-0.5 bg-[#10b981] mr-1.5"></span> TT Buying</span>
+            <span class="flex items-center"><span class="w-3 h-0.5 bg-[#f59e0b] mr-1.5"></span> TT Selling</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-mono">Source: Central Bank of Sri Lanka</span>
+        </div>
+      </div>
+
+      <!-- RIGHT 1 COL: Daily Date Picker & Summary Details -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Historical Date Lookup</h3>
+            <span class="text-xs text-brand-emerald font-semibold flex items-center">
+              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Verified
+            </span>
+          </div>
+
+          <div class="mt-4 space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Select CBSL Trading Date:</label>
+              <select id="dateSelectDropdown" onchange="loadDailyViewForDate(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono-numbers text-slate-800 focus:outline-none focus:border-brand-navy">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Single Currency Inspection Box for Selected Date -->
+            <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200 space-y-2.5 mt-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700" id="lookupCardCurrency">USD / LKR</span>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200" id="lookupCardStatus">Officially Published</span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 text-xs font-mono-numbers">
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-sans">Spot Indicative</span>
+                  <span id="lookupIndicative" class="font-bold text-slate-800">--</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-sans">Inverse (1/Ind)</span>
+                  <span id="lookupInverse" class="font-bold text-slate-800">--</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-sans">TT Buying</span>
+                  <span id="lookupBuy" class="font-bold text-emerald-700">--</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-sans">TT Selling</span>
+                  <span id="lookupSell" class="font-bold text-amber-700">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Internal Controls Note -->
+            <div class="p-3 bg-blue-50/70 rounded-lg border border-blue-100 text-[11px] text-blue-900 space-y-1">
+              <div class="font-bold flex items-center">
+                <svg class="w-3.5 h-3.5 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                HIPG Internal Policy Reference
+              </div>
+              <p class="text-blue-800">
+                Official invoices, customs conversions, and terminal billing must strictly match the CBSL publication for the bill-of-lading / transaction date.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100">
+          <button onclick="downloadMultiSheetExcel()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2 px-3 rounded-lg text-xs flex items-center justify-center space-x-1.5 transition">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Download Full FX Package (.xlsx)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HORIZON DETAIL TABLE (Daily, Weekly, Monthly, Yearly Table View) -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- Horizon Tabs -->
+      <div class="border-b border-slate-200 px-5 pt-3 flex items-center justify-between">
+        <div class="flex space-x-6 text-xs font-semibold overflow-x-auto">
+          <button onclick="selectHorizon('daily')" id="tab-daily" class="py-2.5 border-b-2 border-brand-navy text-brand-navy font-bold transition whitespace-nowrap">Daily Observations</button>
+          <button onclick="selectHorizon('weekly')" id="tab-weekly" class="py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition whitespace-nowrap">Weekly Rollups (ISO)</button>
+          <button onclick="selectHorizon('monthly')" id="tab-monthly" class="py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition whitespace-nowrap">Monthly Rollups</button>
+          <button onclick="selectHorizon('quarterly')" id="tab-quarterly" class="py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition whitespace-nowrap">Quarterly Rollups</button>
+          <button onclick="selectHorizon('yearly')" id="tab-yearly" class="py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition whitespace-nowrap">Yearly Rollups (FY)</button>
+        </div>
+        <div class="text-xs text-slate-400 hidden sm:flex items-center space-x-2 pb-1">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <span id="tableTypeLabel">Daily Verified CBSL Observations</span>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="overflow-x-auto max-h-96 custom-scrollbar">
+        <table class="min-w-full divide-y divide-slate-200 text-xs">
+          <thead class="bg-slate-50 sticky top-0 z-10" id="horizonTableHead">
+            <!-- Rendered by JS based on horizon -->
+          </thead>
+          <tbody class="divide-y divide-slate-200 bg-white font-mono-numbers" id="horizonTableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MANUAL / SMART WEB PASTE INPUT MODAL (Fail-Safe) -->
+  <div id="manualInputModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-brand-navy text-white flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold">Manual Rate Entry & Smart CBSL Paste</h3>
+          <p class="text-xs text-slate-300">Fail-safe mechanism: update today's rates even if public CORS proxies are unreachable</p>
+        </div>
+        <button onclick="closeManualInputModal()" class="text-slate-300 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6 text-xs text-slate-700 custom-scrollbar">
+        <!-- Tab Switcher: Form Entry vs Smart Paste vs JSON Backup -->
+        <div class="flex space-x-4 border-b border-slate-200 pb-2">
+          <button onclick="switchManualTab('form')" id="tabBtnForm" class="font-bold text-brand-navy border-b-2 border-brand-navy pb-1">Direct Form Entry</button>
+          <button onclick="switchManualTab('paste')" id="tabBtnPaste" class="font-medium text-slate-500 hover:text-slate-800 pb-1">Smart CBSL Text Paste</button>
+          <button onclick="switchManualTab('backup')" id="tabBtnBackup" class="font-medium text-slate-500 hover:text-slate-800 pb-1">JSON Backup & Restore</button>
+        </div>
+
+        <!-- 1. Direct Form Entry Tab -->
+        <div id="tabContentForm" class="space-y-4">
+          <div class="flex items-center space-x-3">
+            <label class="font-bold text-slate-700">Publication Date:</label>
+            <input type="date" id="manualPubDate" class="border border-slate-300 rounded px-2.5 py-1 text-xs font-mono-numbers text-slate-800 focus:outline-none focus:border-brand-navy">
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="min-w-full divide-y divide-slate-200 text-xs">
+              <thead class="bg-slate-100 font-semibold text-slate-700">
+                <tr>
+                  <th class="px-3 py-2 text-left">Currency</th>
+                  <th class="px-3 py-2 text-left">Spot Indicative</th>
+                  <th class="px-3 py-2 text-left">TT Buying Rate</th>
+                  <th class="px-3 py-2 text-left">TT Selling Rate</th>
+                </tr>
+              </thead>
+              <tbody id="manualRateFormBody" class="divide-y divide-slate-200 font-mono-numbers">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="flex justify-between items-center pt-2">
+            <span class="text-slate-400 text-[11px]">Strict Validation: Indicative > 0, TT Buy &lt; TT Sell.</span>
+            <button onclick="saveManualFormRates()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow">
+              Save & Verify Rates
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Smart Paste Tab -->
+        <div id="tabContentPaste" class="hidden space-y-4">
+          <p class="text-slate-600">
+            Copy the text from the CBSL website (<a href="https://www.cbsl.gov.lk/en/node/146" target="_blank" class="text-blue-600 underline">node/146</a>, <a href="https://www.cbsl.gov.lk/cbsl_custom/exratestt/exratestt.php" target="_blank" class="text-blue-600 underline">TT table</a>, or Indicative table) and paste it below:
+          </p>
+          <textarea id="smartPasteText" rows="8" placeholder="Paste table text or lines from CBSL here (e.g., 'USD 332.76 328.37 337.27' or full table content)..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs font-mono text-slate-800 focus:outline-none focus:border-brand-navy custom-scrollbar"></textarea>
+          
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-[11px]">Auto-detects currencies (USD, EUR, GBP, AUD, CAD, CNY, JPY, SGD, CHF).</span>
+            <button onclick="parseSmartPasteText()" class="bg-brand-navy hover:bg-brand-navyLight text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow">
+              Extract & Review Rates
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Backup & Restore Tab -->
+        <div id="tabContentBackup" class="hidden space-y-4">
+          <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <h5 class="font-bold text-slate-800">Export Full Database Backup</h5>
+            <p class="text-slate-500">Download all historical CBSL observations and audit logs as a single JSON file to share with colleagues or save offline.</p>
+            <button onclick="exportJsonBackup()" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-3.5 py-1.5 rounded-lg text-xs transition flex items-center space-x-1.5">
+              <svg class="w-4 h-4 text-brand-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>Download JSON Backup</span>
+            </button>
+          </div>
+
+          <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <h5 class="font-bold text-slate-800">Import / Restore Backup File</h5>
+            <p class="text-slate-500">Upload a <code class="text-slate-800">.json</code> backup file to restore or merge CBSL records.</p>
+            <input type="file" id="jsonBackupInput" accept=".json" onchange="importJsonBackup(event)" class="text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-navy file:text-white hover:file:bg-brand-navyLight">
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button onclick="closeManualInputModal()" class="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition">
+          Close Window
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIT TRAIL & METHODOLOGY MODAL -->
+  <div id="auditModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-brand-navy text-white flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold">Calculation Methodology & Live Sync Audit Log</h3>
+          <p class="text-xs text-slate-300">Auditable proof of official CBSL source ingestion and mathematical integrity</p>
+        </div>
+        <button onclick="closeAuditModal()" class="text-slate-300 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6 text-xs text-slate-700 custom-scrollbar">
+        <!-- Methodology Section -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+          <h4 class="font-bold text-slate-900 text-sm flex items-center text-brand-navy">
+            <svg class="w-4 h-4 mr-1.5 text-brand-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            Financial Calculation & Integrity Rules
+          </h4>
+          <ul class="list-disc pl-5 space-y-1.5 text-slate-600">
+            <li><strong>Official Daily Observations:</strong> Exact CBSL published observations retrieved directly from CBSL forms (<code class="text-brand-navy">exrates_results.php</code> & <code class="text-brand-navy">exrates_resultstt.php</code>).</li>
+            <li><strong>No Synthetic Data / No Carry-Forward:</strong> Weekend and public holiday rates are strictly excluded from averaging. Daily gaps remain blank (<code class="text-amber-800">Not Available</code>).</li>
+            <li><strong>Arithmetic Formula:</strong> All periodic rollups (Weekly, Monthly, Quarterly, Yearly) are computed strictly as:
+              <br><code class="bg-slate-200 text-slate-800 px-2 py-0.5 rounded text-[11px] font-mono">Average = SUM(actual_daily_observations) / n</code>
+            </li>
+            <li><strong>Opening & Closing:</strong> Opening reflects the earliest valid observation date in the period; Closing reflects the latest. High & Low are exact extremes.</li>
+          </ul>
+        </div>
+
+        <!-- Live Audit Trail Log -->
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm mb-2">Retrieval & Ingestion Audit Trail</h4>
+          <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-60 custom-scrollbar">
+            <table class="min-w-full divide-y divide-slate-200 text-[11px]">
+              <thead class="bg-slate-100 text-slate-600 font-semibold sticky top-0">
+                <tr>
+                  <th class="px-3 py-2 text-left">Time (SLST)</th>
+                  <th class="px-3 py-2 text-left">Trigger</th>
+                  <th class="px-3 py-2 text-left">Status</th>
+                  <th class="px-3 py-2 text-left">Target Date</th>
+                  <th class="px-3 py-2 text-left">Latest Pub</th>
+                  <th class="px-3 py-2 text-left">Updated</th>
+                  <th class="px-3 py-2 text-left">Message</th>
+                </tr>
+              </thead>
+              <tbody id="auditLogTableBody" class="divide-y divide-slate-200 font-mono-numbers bg-white">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <button onclick="closeAuditModal()" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition">
+          Close Window
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BRIEFING GENERATOR MODAL -->
+  <div id="briefingModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-brand-navy text-white flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold">Colleague Briefing Generator</h3>
+          <p class="text-xs text-slate-300">Ready-to-copy summary for Microsoft Teams, WhatsApp & Email</p>
+        </div>
+        <button onclick="closeBriefingModal()" class="text-slate-300 hover:text-white p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <textarea id="briefingText" rows="10" readonly class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs font-mono text-slate-800 focus:outline-none custom-scrollbar"></textarea>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-500">Includes official 9 CBSL currency rates and publication timestamp.</span>
+          <button onclick="copyBriefingToClipboard()" id="btnCopyBriefing" class="bg-brand-amber hover:bg-brand-amberDark text-brand-navyDark font-bold px-4 py-2 rounded-lg text-xs transition flex items-center space-x-1.5 shadow">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+            <span>Copy Briefing</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center space-x-2">
+        <span class="font-bold text-slate-700">HIPG Finance Department</span>
+        <span>•</span>
+        <span>Colombo Business Standard Time (UTC+05:30)</span>
+      </div>
+      <div class="flex items-center space-x-3 text-slate-400">
+        <span>100% Client-Side Verified Store</span>
+        <span>•</span>
+        <span>GitHub Pages Edition</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- CLIENT-SIDE APPLICATION CORE SCRIPT -->
+  <script>
+    // 9 Designated CBSL Currencies
+    const OFFICIAL_CURRENCIES = [
+      { code: "USD", name: "United States Dollar", tt_label: "United States Dollar", ind_label: "US Dollar" },
+      { code: "EUR", name: "Euro", tt_label: "Euro", ind_label: "Euro" },
+      { code: "GBP", name: "British Pound Sterling", tt_label: "British Pound", ind_label: "Sterling Pound" },
+      { code: "AUD", name: "Australian Dollar", tt_label: "Australian Dollar", ind_label: "Australian Dollar" },
+      { code: "CAD", name: "Canadian Dollar", tt_label: "Canadian Dollar", ind_label: "Canadian Dollar" },
+      { code: "CNY", name: "Chinese Yuan (Renminbi)", tt_label: "Renminbi", ind_label: "Chinese Yuan (Renminbi)" },
+      { code: "JPY", name: "Japanese Yen", tt_label: "Yen", ind_label: "Japanese Yen" },
+      { code: "SGD", name: "Singapore Dollar", tt_label: "Singapore Dollar", ind_label: "Singapore Dollar" },
+      { code: "CHF", name: "Swiss Franc", tt_label: "Swiss Franc", ind_label: "Swiss Franc" }
+    ];
+    const WHITELIST_CODES = new Set(OFFICIAL_CURRENCIES.map(c => c.code));
+
+    // Application State
+    let currentCurrency = 'USD';
+    let currentHorizon = 'daily';
+    let chartInstance = null;
+    let chartDays = 90;
+    
+    // In-memory Database
+    let dbRates = {}; // key: `${date}_${currCode}` => { publication_date, currency_code, indicative_rate, tt_buying_rate, tt_selling_rate, verification_status }
+    let dbAuditLogs = [];
+
+    // Helper: Colombo Date SLST
+    function getColomboDateString() {
+      // SLST is UTC+5:30
+      const now = new Date();
+      const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const slstMs = utcMs + (5.5 * 3600000);
+      const slstDate = new Date(slstMs);
+      return slstDate.toISOString().split('T')[0];
+    }
+
+    function getColomboTimestampString() {
+      const now = new Date();
+      const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const slstMs = utcMs + (5.5 * 3600000);
+      const slstDate = new Date(slstMs);
+      return slstDate.toISOString().replace('T', ' ').substring(0, 19) + ' SLST';
+    }
+
+    // Toast Notifications
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `px-4 py-3 rounded-lg shadow-lg text-xs font-semibold flex items-center space-x-2 transition-all transform duration-300 pointer-events-auto border ${
+        type === 'success' ? 'bg-emerald-800 text-white border-emerald-700' :
+        type === 'error' ? 'bg-red-800 text-white border-red-700' :
+        type === 'warning' ? 'bg-amber-800 text-white border-amber-700' :
+        'bg-slate-800 text-white border-slate-700'
+      }`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Initialize Database from LocalStorage or Embedded Initial Dataset
+    function initDatabase() {
+      // 1. Try to load from localStorage
+      const storedRates = localStorage.getItem('hipg_fx_rates_v1');
+      const storedLogs = localStorage.getItem('hipg_fx_audit_logs_v1');
+
+      if (storedRates) {
+        try {
+          dbRates = JSON.parse(storedRates);
+        } catch(e) {
+          dbRates = {};
+        }
+      }
+
+      if (storedLogs) {
+        try {
+          dbAuditLogs = JSON.parse(storedLogs);
+        } catch(e) {
+          dbAuditLogs = [];
+        }
+      }
+
+      // 2. If empty or initial load, populate from window.INITIAL_CBSL_DATA
+      if (Object.keys(dbRates).length === 0 && window.INITIAL_CBSL_DATA && window.INITIAL_CBSL_DATA.rates) {
+        window.INITIAL_CBSL_DATA.rates.forEach(r => {
+          const key = `${r.publication_date}_${r.currency_code}`;
+          dbRates[key] = r;
+        });
+        if (window.INITIAL_CBSL_DATA.audit_logs) {
+          dbAuditLogs = [...window.INITIAL_CBSL_DATA.audit_logs];
+        }
+        persistDatabase();
+      }
+
+      // 3. Fallback fetch from data/cbsl_rates.json if needed
+      if (Object.keys(dbRates).length === 0) {
+        fetch('./data/cbsl_rates.json')
+          .then(res => res.json())
+          .then(json => {
+            if (json.rates) {
+              json.rates.forEach(r => {
+                const key = `${r.publication_date}_${r.currency_code}`;
+                dbRates[key] = r;
+              });
+              if (json.audit_logs) dbAuditLogs = json.audit_logs;
+              persistDatabase();
+              refreshAppView();
+            }
+          })
+          .catch(e => console.log('Static JSON bootstrap skipped/not needed'));
+      }
+    }
+
+    function persistDatabase() {
+      try {
+        localStorage.setItem('hipg_fx_rates_v1', JSON.stringify(dbRates));
+        localStorage.setItem('hipg_fx_audit_logs_v1', JSON.stringify(dbAuditLogs));
+      } catch (e) {
+        console.warn('LocalStorage quota limit reached:', e);
+      }
+    }
+
+    // Strict Validation Rules (Blueprint Section 4)
+    function validateRateEntry(pubDate, currencyCode, indRate, ttBuy, ttSell) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(pubDate)) {
+        throw new Error(`Invalid date format: ${pubDate}. Must be YYYY-MM-DD.`);
+      }
+      const today = getColomboDateString();
+      if (pubDate > today) {
+        throw new Error(`Publication date ${pubDate} is in the future (today: ${today}). Rejected.`);
+      }
+      if (!WHITELIST_CODES.has(currencyCode)) {
+        throw new Error(`Currency ${currencyCode} is not in the official 9-currency whitelist.`);
+      }
+      if (indRate !== null && indRate !== undefined) {
+        if (typeof indRate !== 'number' || indRate <= 0) throw new Error(`Indicative rate must be > 0.`);
+      }
+      if (ttBuy !== null && ttBuy !== undefined) {
+        if (typeof ttBuy !== 'number' || ttBuy <= 0) throw new Error(`TT Buying rate must be > 0.`);
+      }
+      if (ttSell !== null && ttSell !== undefined) {
+        if (typeof ttSell !== 'number' || ttSell <= 0) throw new Error(`TT Selling rate must be > 0.`);
+      }
+      if (ttBuy !== null && ttBuy !== undefined && ttSell !== null && ttSell !== undefined) {
+        if (ttBuy >= ttSell) throw new Error(`Inverted spread: TT Buying (${ttBuy}) must be strictly less than TT Selling (${ttSell}).`);
+      }
+    }
+
+    // Ingest / Upsert Rate
+    function upsertRate(pubDate, currencyCode, indRate = null, ttBuy = null, ttSell = null, status = 'Officially Published') {
+      const key = `${pubDate}_${currencyCode}`;
+      const existing = dbRates[key] || {};
+      
+      const finalInd = indRate !== null ? indRate : (existing.indicative_rate ?? null);
+      const finalBuy = ttBuy !== null ? ttBuy : (existing.tt_buying_rate ?? null);
+      const finalSell = ttSell !== null ? ttSell : (existing.tt_selling_rate ?? null);
+
+      validateRateEntry(pubDate, currencyCode, finalInd, finalBuy, finalSell);
+
+      dbRates[key] = {
+        publication_date: pubDate,
+        currency_code: currencyCode,
+        indicative_rate: finalInd !== null ? Number(finalInd.toFixed(4)) : null,
+        tt_buying_rate: finalBuy !== null ? Number(finalBuy.toFixed(4)) : null,
+        tt_selling_rate: finalSell !== null ? Number(finalSell.toFixed(4)) : null,
+        verification_status: status
+      };
+    }
+
+    function addAuditLog(triggerType, status, targetDate, latestPub, updatedCount, message) {
+      dbAuditLogs.unshift({
+        sync_timestamp_slst: getColomboTimestampString(),
+        trigger_type: triggerType,
+        retrieval_status: status,
+        target_date_slst: targetDate,
+        latest_published_date: latestPub,
+        currencies_updated: updatedCount,
+        message: message
+      });
+      if (dbAuditLogs.length > 50) dbAuditLogs.pop();
+      persistDatabase();
+    }
+
+    // Calculation Methods
+    function getAvailableDates() {
+      const dates = new Set();
+      Object.values(dbRates).forEach(r => dates.add(r.publication_date));
+      return Array.from(dates).sort().reverse();
+    }
+
+    function getLatestSummary() {
+      const today = getColomboDateString();
+      const dates = getAvailableDates();
+      const latestPub = dates.length > 0 ? dates[0] : null;
+      const prevPub = dates.length > 1 ? dates[1] : null;
+
+      const isTodayPublished = (latestPub === today);
+      const targetDate = latestPub || today;
+
+      const currencyCards = [];
+      let availableCount = 0;
+      const missingWarnings = [];
+
+      OFFICIAL_CURRENCIES.forEach(c => {
+        const key = `${targetDate}_${c.code}`;
+        const record = dbRates[key];
+
+        if (record && (record.indicative_rate !== null || record.tt_buying_rate !== null)) {
+          availableCount++;
+          const ind = record.indicative_rate;
+          const buy = record.tt_buying_rate;
+          const sell = record.tt_selling_rate;
+
+          if (ind === null) missingWarnings.push(`${c.code}: Missing Indicative`);
+          if (buy === null) missingWarnings.push(`${c.code}: Missing TT Buy`);
+          if (sell === null) missingWarnings.push(`${c.code}: Missing TT Sell`);
+
+          currencyCards.push({
+            currency_code: c.code,
+            currency_name: c.name,
+            publication_date: record.publication_date,
+            indicative_rate: ind,
+            tt_buying_rate: buy,
+            tt_selling_rate: sell,
+            inverse_rate: ind ? Number((1.0 / ind).toFixed(6)) : null,
+            verification_status: record.verification_status,
+            is_available: true
+          });
+        } else {
+          missingWarnings.push(`${c.code}: Not published on ${targetDate}`);
+          currencyCards.push({
+            currency_code: c.code,
+            currency_name: c.name,
+            publication_date: targetDate,
+            indicative_rate: null,
+            tt_buying_rate: null,
+            tt_selling_rate: null,
+            inverse_rate: null,
+            verification_status: 'Not Available',
+            is_available: false
+          });
+        }
+      });
+
+      return {
+        colombo_business_date: today,
+        latest_publication_date: latestPub,
+        previous_business_date: prevPub,
+        is_today_published: isTodayPublished,
+        coverage_text: `${availableCount}/9 Currencies Verified`,
+        available_count: availableCount,
+        missing_warnings: missingWarnings,
+        currencies: currencyCards,
+        available_dates: dates,
+        last_sync: dbAuditLogs.length > 0 ? dbAuditLogs[0] : null
+      };
+    }
+
+    // Rollup Engine (SUM(obs) / n)
+    function getRollupData(currencyCode, horizon) {
+      // Extract all observations for currency
+      const records = Object.values(dbRates)
+        .filter(r => r.currency_code === currencyCode && (r.indicative_rate !== null || r.tt_buying_rate !== null))
+        .sort((a, b) => a.publication_date.localeCompare(b.publication_date));
+
+      if (records.length === 0) return [];
+
+      function getBucketKey(dateStr, h) {
+        const dt = new Date(dateStr + 'T00:00:00Z');
+        if (h === 'weekly') {
+          // ISO 8601 Week
+          const target = new Date(dt.valueOf());
+          const dayNr = (dt.getUTCDay() + 6) % 7;
+          target.setUTCDate(target.getUTCDate() - dayNr + 3);
+          const firstThursday = target.valueOf();
+          target.setUTCMonth(0, 1);
+          if (target.getUTCDay() !== 4) {
+            target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
+          }
+          const weekNr = 1 + Math.ceil((firstThursday - target) / 604800000);
+          return `${dt.getUTCFullYear()}-W${String(weekNr).padStart(2, '0')}`;
+        } else if (h === 'monthly') {
+          return dateStr.substring(0, 7);
+        } else if (h === 'quarterly') {
+          const m = parseInt(dateStr.substring(5, 7), 10);
+          const q = Math.ceil(m / 3);
+          return `${dateStr.substring(0, 4)}-Q${q}`;
+        } else if (h === 'yearly') {
+          return `FY ${dateStr.substring(0, 4)}`;
+        }
+        return dateStr;
+      }
+
+      const buckets = {};
+      records.forEach(r => {
+        const k = getBucketKey(r.publication_date, horizon);
+        if (!buckets[k]) buckets[k] = [];
+        buckets[k].push(r);
+      });
+
+      const summaryList = [];
+      Object.keys(buckets).sort().reverse().forEach(bKey => {
+        const items = buckets[bKey];
+        const nTotal = items.length;
+
+        const indVals = items.map(x => x.indicative_rate).filter(x => x !== null);
+        const buyVals = items.map(x => x.tt_buying_rate).filter(x => x !== null);
+        const sellVals = items.map(x => x.tt_selling_rate).filter(x => x !== null);
+
+        const avgInd = indVals.length > 0 ? Number((indVals.reduce((a, b) => a + b, 0) / indVals.length).toFixed(4)) : null;
+        const avgBuy = buyVals.length > 0 ? Number((buyVals.reduce((a, b) => a + b, 0) / buyVals.length).toFixed(4)) : null;
+        const avgSell = sellVals.length > 0 ? Number((sellVals.reduce((a, b) => a + b, 0) / sellVals.length).toFixed(4)) : null;
+
+        summaryList.push({
+          period_label: bKey,
+          observation_count: nTotal,
+          start_date: items[0].publication_date,
+          end_date: items[items.length - 1].publication_date,
+          avg_indicative: avgInd,
+          open_indicative: indVals.length > 0 ? indVals[0] : null,
+          close_indicative: indVals.length > 0 ? indVals[indVals.length - 1] : null,
+          high_indicative: indVals.length > 0 ? Math.max(...indVals) : null,
+          low_indicative: indVals.length > 0 ? Math.min(...indVals) : null,
+          avg_tt_buying: avgBuy,
+          avg_tt_selling: avgSell
+        });
+      });
+
+      return summaryList;
+    }
+
+    // Trend History Points for Chart
+    function getHistoryPoints(currencyCode, days = 90) {
+      const records = Object.values(dbRates)
+        .filter(r => r.currency_code === currencyCode && (r.indicative_rate !== null || r.tt_buying_rate !== null))
+        .sort((a, b) => b.publication_date.localeCompare(a.publication_date))
+        .slice(0, days);
+
+      return records.reverse().map(r => ({
+        date: r.publication_date,
+        indicative: r.indicative_rate,
+        buying: r.tt_buying_rate,
+        selling: r.tt_selling_rate
+      }));
+    }
+
+    // Refresh UI Components
+    function refreshAppView() {
+      const summary = getLatestSummary();
+      renderBanner(summary);
+      renderCurrencyCards(summary.currencies);
+      populateDateDropdown(summary.available_dates, summary.latest_publication_date);
+      updateRollupCards();
+      updateChart();
+      loadHorizonTable();
+      renderAuditLogs();
+    }
+
+    function renderBanner(data) {
+      document.getElementById('colomboDateLabel').textContent = data.colombo_business_date;
+      document.getElementById('latestPubDateLabel').textContent = data.latest_publication_date || 'Awaiting Publication';
+      document.getElementById('totalDaysLabel').textContent = `${data.available_dates.length} Days`;
+
+      const statusBadge = document.getElementById('statusBadge');
+      if (data.is_today_published) {
+        statusBadge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+        statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> Officially Published`;
+      } else {
+        statusBadge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
+        statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span> Awaiting CBSL Publication (Showing ${data.latest_publication_date || 'N/A'})`;
+      }
+
+      document.getElementById('coverageBadge').textContent = data.coverage_text;
+
+      const warnStrip = document.getElementById('warningStrip');
+      if (data.missing_warnings.length > 0) {
+        warnStrip.classList.remove('hidden');
+        document.getElementById('warningStripText').textContent = `Rate Notices: ${data.missing_warnings.slice(0, 3).join('; ')}`;
+      } else {
+        warnStrip.classList.add('hidden');
+      }
+    }
+
+    function renderCurrencyCards(currencies) {
+      const grid = document.getElementById('currencyGrid');
+      grid.innerHTML = '';
+
+      currencies.forEach(c => {
+        const isSelected = c.currency_code === currentCurrency;
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-lg border cursor-pointer transition-all transform hover:-translate-y-0.5 ${
+          isSelected ? 'bg-brand-navy text-white border-brand-amber shadow-md' : 'bg-slate-50 hover:bg-white text-slate-800 border-slate-200'
+        }`;
+        card.onclick = () => selectCurrency(c.currency_code);
+
+        const indStr = c.indicative_rate !== null ? c.indicative_rate.toFixed(4) : 'Not Available';
+        const buyStr = c.tt_buying_rate !== null ? c.tt_buying_rate.toFixed(4) : '--';
+        const sellStr = c.tt_selling_rate !== null ? c.tt_selling_rate.toFixed(4) : '--';
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-extrabold text-sm ${isSelected ? 'text-brand-amber' : 'text-brand-navy'}">${c.currency_code}</span>
+            <span class="text-[9px] ${isSelected ? 'text-slate-300' : 'text-slate-400'} uppercase">${c.currency_name.split(' ')[0]}</span>
+          </div>
+          <div class="text-xs font-black font-mono-numbers mb-1.5">${indStr}</div>
+          <div class="flex justify-between text-[10px] font-mono-numbers pt-1 border-t ${isSelected ? 'border-brand-navyLight text-slate-300' : 'border-slate-200 text-slate-500'}">
+            <span>B: ${buyStr}</span>
+            <span>S: ${sellStr}</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function selectCurrency(code) {
+      currentCurrency = code;
+      document.getElementById('chartCurrencyTitle').textContent = code;
+      const summary = getLatestSummary();
+      renderCurrencyCards(summary.currencies);
+      updateRollupCards();
+      updateChart();
+      loadHorizonTable();
+
+      const d = document.getElementById('dateSelectDropdown').value;
+      if (d) loadDailyViewForDate(d);
+    }
+
+    function updateRollupCards() {
+      const summary = getLatestSummary();
+      const curr = summary.currencies.find(c => c.currency_code === currentCurrency);
+      if (curr) {
+        document.getElementById('cardDailyIndicative').textContent = curr.indicative_rate !== null ? curr.indicative_rate.toFixed(4) : 'Not Available';
+        document.getElementById('cardDailyBuy').textContent = curr.tt_buying_rate !== null ? curr.tt_buying_rate.toFixed(4) : 'Not Available';
+        document.getElementById('cardDailySell').textContent = curr.tt_selling_rate !== null ? curr.tt_selling_rate.toFixed(4) : 'Not Available';
+      }
+
+      const wData = getRollupData(currentCurrency, 'weekly');
+      if (wData.length > 0) {
+        const w = wData[0];
+        document.getElementById('cardWeeklyObs').textContent = `Avg (n=${w.observation_count} obs)`;
+        document.getElementById('cardWeeklyAvg').textContent = w.avg_indicative !== null ? w.avg_indicative.toFixed(4) : 'Not Available';
+        document.getElementById('cardWeeklyBuy').textContent = w.avg_tt_buying !== null ? w.avg_tt_buying.toFixed(4) : 'Not Available';
+        document.getElementById('cardWeeklySell').textContent = w.avg_tt_selling !== null ? w.avg_tt_selling.toFixed(4) : 'Not Available';
+      }
+
+      const mData = getRollupData(currentCurrency, 'monthly');
+      if (mData.length > 0) {
+        const m = mData[0];
+        document.getElementById('cardMonthlyObs').textContent = `Avg (n=${m.observation_count} obs)`;
+        document.getElementById('cardMonthlyAvg').textContent = m.avg_indicative !== null ? m.avg_indicative.toFixed(4) : 'Not Available';
+        document.getElementById('cardMonthlyBuy').textContent = m.avg_tt_buying !== null ? m.avg_tt_buying.toFixed(4) : 'Not Available';
+        document.getElementById('cardMonthlySell').textContent = m.avg_tt_selling !== null ? m.avg_tt_selling.toFixed(4) : 'Not Available';
+      }
+
+      const yData = getRollupData(currentCurrency, 'yearly');
+      if (yData.length > 0) {
+        const y = yData[0];
+        document.getElementById('cardYearlyObs').textContent = `Avg (n=${y.observation_count} obs)`;
+        document.getElementById('cardYearlyAvg').textContent = y.avg_indicative !== null ? y.avg_indicative.toFixed(4) : 'Not Available';
+        document.getElementById('cardYearlyBuy').textContent = y.avg_tt_buying !== null ? y.avg_tt_buying.toFixed(4) : 'Not Available';
+        document.getElementById('cardYearlySell').textContent = y.avg_tt_selling !== null ? y.avg_tt_selling.toFixed(4) : 'Not Available';
+      }
+    }
+
+    function populateDateDropdown(dates, defaultDate) {
+      const select = document.getElementById('dateSelectDropdown');
+      select.innerHTML = '';
+      if (!dates || dates.length === 0) {
+        select.innerHTML = '<option value="">No published dates in database</option>';
+        return;
+      }
+      dates.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d === defaultDate ? `${d} (Latest Official CBSL)` : d;
+        if (d === defaultDate) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (defaultDate) loadDailyViewForDate(defaultDate);
+    }
+
+    function loadDailyViewForDate(dateStr) {
+      document.getElementById('lookupCardCurrency').textContent = `${currentCurrency} / LKR — ${dateStr}`;
+      const key = `${dateStr}_${currentCurrency}`;
+      const record = dbRates[key];
+
+      if (record && (record.indicative_rate !== null || record.tt_buying_rate !== null)) {
+        document.getElementById('lookupCardStatus').textContent = record.verification_status;
+        document.getElementById('lookupCardStatus').className = 'text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200';
+        document.getElementById('lookupIndicative').textContent = record.indicative_rate !== null ? record.indicative_rate.toFixed(4) : 'Not Available';
+        document.getElementById('lookupInverse').textContent = record.indicative_rate ? (1.0 / record.indicative_rate).toFixed(6) : 'Not Available';
+        document.getElementById('lookupBuy').textContent = record.tt_buying_rate !== null ? record.tt_buying_rate.toFixed(4) : 'Not Available';
+        document.getElementById('lookupSell').textContent = record.tt_selling_rate !== null ? record.tt_selling_rate.toFixed(4) : 'Not Available';
+      } else {
+        document.getElementById('lookupCardStatus').textContent = 'Not Available';
+        document.getElementById('lookupCardStatus').className = 'text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200';
+        document.getElementById('lookupIndicative').textContent = 'Not Available';
+        document.getElementById('lookupInverse').textContent = 'Not Available';
+        document.getElementById('lookupBuy').textContent = 'Not Available';
+        document.getElementById('lookupSell').textContent = 'Not Available';
+      }
+    }
+
+    function selectHorizon(h) {
+      currentHorizon = h;
+      ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].forEach(tabName => {
+        const tab = document.getElementById(`tab-${tabName}`);
+        if (tab) {
+          if (tabName === h) {
+            tab.className = 'py-2.5 border-b-2 border-brand-navy text-brand-navy font-bold transition whitespace-nowrap';
+          } else {
+            tab.className = 'py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition whitespace-nowrap';
+          }
+        }
+      });
+      ['daily', 'weekly', 'monthly', 'yearly'].forEach(cardName => {
+        const card = document.getElementById(`horizonCard-${cardName}`);
+        if (card) {
+          if (cardName === h) {
+            card.classList.add('border-brand-navy', 'shadow-md');
+            card.classList.remove('border-transparent');
+          } else {
+            card.classList.remove('border-brand-navy', 'shadow-md');
+            card.classList.add('border-transparent');
+          }
+        }
+      });
+      loadHorizonTable();
+    }
+
+    function loadHorizonTable() {
+      const head = document.getElementById('horizonTableHead');
+      const body = document.getElementById('horizonTableBody');
+      const label = document.getElementById('tableTypeLabel');
+
+      body.innerHTML = '';
+
+      if (currentHorizon === 'daily') {
+        label.textContent = `Daily Official CBSL Published Observations (${currentCurrency})`;
+        head.innerHTML = `
+          <tr>
+            <th class="px-4 py-2.5 text-left font-semibold text-slate-600">Publication Date</th>
+            <th class="px-4 py-2.5 text-left font-semibold text-slate-600">Currency</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">Spot Indicative</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">TT Buying</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">TT Selling</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">Inverse (1/Ind)</th>
+            <th class="px-4 py-2.5 text-center font-semibold text-slate-600">Status</th>
+          </tr>
+        `;
+
+        const records = Object.values(dbRates)
+          .filter(r => r.currency_code === currentCurrency)
+          .sort((a, b) => b.publication_date.localeCompare(a.publication_date));
+
+        if (records.length === 0) {
+          body.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-400">No records available.</td></tr>';
+          return;
+        }
+
+        records.forEach(r => {
+          const ind = r.indicative_rate !== null ? r.indicative_rate.toFixed(4) : 'Not Available';
+          const buy = r.tt_buying_rate !== null ? r.tt_buying_rate.toFixed(4) : 'Not Available';
+          const sell = r.tt_selling_rate !== null ? r.tt_selling_rate.toFixed(4) : 'Not Available';
+          const inv = r.indicative_rate ? (1.0 / r.indicative_rate).toFixed(6) : 'Not Available';
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition';
+          tr.innerHTML = `
+            <td class="px-4 py-2 font-semibold text-slate-800">${r.publication_date}</td>
+            <td class="px-4 py-2 font-bold text-brand-navy">${currentCurrency}</td>
+            <td class="px-4 py-2 text-right font-bold text-slate-900">${ind}</td>
+            <td class="px-4 py-2 text-right text-emerald-700">${buy}</td>
+            <td class="px-4 py-2 text-right text-amber-700">${sell}</td>
+            <td class="px-4 py-2 text-right text-slate-500">${inv}</td>
+            <td class="px-4 py-2 text-center">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                ${r.verification_status}
+              </span>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+      } else {
+        const horizonTitles = {
+          'weekly': 'ISO Weekly Arithmetic Averages (SUM / n)',
+          'monthly': 'Monthly Arithmetic Averages (SUM / n)',
+          'quarterly': 'Quarterly Arithmetic Averages (SUM / n)',
+          'yearly': 'Yearly Arithmetic Averages (SUM / n)'
+        };
+        label.textContent = `${horizonTitles[currentHorizon]} (${currentCurrency})`;
+
+        head.innerHTML = `
+          <tr>
+            <th class="px-4 py-2.5 text-left font-semibold text-slate-600">Period</th>
+            <th class="px-4 py-2.5 text-center font-semibold text-slate-600">Obs (n)</th>
+            <th class="px-4 py-2.5 text-left font-semibold text-slate-600">Date Range</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">Avg Indicative</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">Opening</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">Closing</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">High / Low</th>
+            <th class="px-4 py-2.5 text-right font-semibold text-slate-600">Avg TT Buy / Sell</th>
+          </tr>
+        `;
+
+        const rollups = getRollupData(currentCurrency, currentHorizon);
+        if (rollups.length === 0) {
+          body.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400">No rollup observations found for this period.</td></tr>';
+          return;
+        }
+
+        rollups.forEach(r => {
+          const avgInd = r.avg_indicative !== null ? r.avg_indicative.toFixed(4) : 'Not Available';
+          const openInd = r.open_indicative !== null ? r.open_indicative.toFixed(4) : '--';
+          const closeInd = r.close_indicative !== null ? r.close_indicative.toFixed(4) : '--';
+          const highInd = r.high_indicative !== null ? r.high_indicative.toFixed(4) : '--';
+          const lowInd = r.low_indicative !== null ? r.low_indicative.toFixed(4) : '--';
+          const avgBuy = r.avg_tt_buying !== null ? r.avg_tt_buying.toFixed(4) : '--';
+          const avgSell = r.avg_tt_selling !== null ? r.avg_tt_selling.toFixed(4) : '--';
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition';
+          tr.innerHTML = `
+            <td class="px-4 py-2 font-bold text-brand-navy">${r.period_label}</td>
+            <td class="px-4 py-2 text-center">
+              <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold border border-blue-200">
+                n = ${r.observation_count}
+              </span>
+            </td>
+            <td class="px-4 py-2 text-slate-500 text-[11px]">${r.start_date} → ${r.end_date}</td>
+            <td class="px-4 py-2 text-right font-black text-slate-900">${avgInd}</td>
+            <td class="px-4 py-2 text-right text-slate-600">${openInd}</td>
+            <td class="px-4 py-2 text-right text-slate-600">${closeInd}</td>
+            <td class="px-4 py-2 text-right text-slate-500">${highInd} / ${lowInd}</td>
+            <td class="px-4 py-2 text-right font-semibold">
+              <span class="text-emerald-700">${avgBuy}</span> / <span class="text-amber-700">${avgSell}</span>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+    }
+
+    // Chart.js Trend Graph Initialization & Update
+    function initChart() {
+      const ctx = document.getElementById('rateTrendChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Spot Indicative Rate',
+              data: [],
+              borderColor: '#002B49',
+              backgroundColor: 'rgba(0, 43, 73, 0.05)',
+              borderWidth: 2.5,
+              tension: 0.1,
+              pointRadius: 2,
+              fill: false
+            },
+            {
+              label: 'TT Buying Rate',
+              data: [],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.05)',
+              borderWidth: 2,
+              tension: 0.1,
+              pointRadius: 1.5,
+              borderDash: [4, 4],
+              fill: false
+            },
+            {
+              label: 'TT Selling Rate',
+              data: [],
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.05)',
+              borderWidth: 2,
+              tension: 0.1,
+              pointRadius: 1.5,
+              borderDash: [2, 2],
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#001A2C',
+              titleFont: { family: 'JetBrains Mono', size: 12 },
+              bodyFont: { family: 'JetBrains Mono', size: 11 },
+              padding: 10,
+              boxPadding: 4,
+              callbacks: {
+                label: function(context) {
+                  return ` ${context.dataset.label}: ${context.parsed.y ? context.parsed.y.toFixed(4) : 'N/A'} LKR`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 12 }
+            },
+            y: {
+              grid: { color: '#f1f5f9' },
+              ticks: { font: { family: 'JetBrains Mono', size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    function setChartRange(days) {
+      chartDays = days;
+      [30, 90, 180, 365].forEach(d => {
+        const btn = document.getElementById(`btnRange${d}`);
+        if (btn) {
+          if (d === days) {
+            btn.className = 'px-2.5 py-1 rounded bg-white shadow-xs font-bold text-brand-navy transition';
+          } else {
+            btn.className = 'px-2.5 py-1 rounded transition hover:text-slate-900';
+          }
+        }
+      });
+      updateChart();
+    }
+
+    function updateChart() {
+      if (!chartInstance) return;
+      const points = getHistoryPoints(currentCurrency, chartDays);
+      chartInstance.data.labels = points.map(p => p.date);
+      chartInstance.data.datasets[0].data = points.map(p => p.indicative);
+      chartInstance.data.datasets[1].data = points.map(p => p.buying);
+      chartInstance.data.datasets[2].data = points.map(p => p.selling);
+      chartInstance.update();
+    }
+
+    // Live Browser CBSL Sync via Public CORS Proxies
+    async function triggerClientSync() {
+      const btn = document.getElementById('btnSyncNow');
+      const icon = document.getElementById('syncIcon');
+      const txt = document.getElementById('syncText');
+
+      btn.disabled = true;
+      icon.classList.add('animate-spin');
+      txt.textContent = 'Contacting CBSL...';
+
+      showToast('Initiating browser CBSL retrieval via secure CORS bridge...', 'info');
+
+      const targetDate = getColomboDateString();
+      const proxies = [
+        'https://api.allorigins.win/raw?url=',
+        'https://corsproxy.io/?url=',
+        'https://api.codetabs.com/v1/proxy?quest='
+      ];
+
+      let syncSuccess = false;
+      let totalUpdated = 0;
+
+      // 1. Fetch CBSL Overview page (node/146)
+      for (const proxy of proxies) {
+        try {
+          const cbslUrl = encodeURIComponent('https://www.cbsl.gov.lk/en/node/146');
+          const fetchUrl = `${proxy}${cbslUrl}`;
+          const res = await fetch(fetchUrl, { headers: { 'Accept': 'text/html' } });
+          if (!res.ok) continue;
+
+          const html = await res.text();
+          if (!html || html.length < 500) continue;
+
+          const parsed = parseCBSLOverviewHTML(html, targetDate);
+          if (parsed && parsed.length > 0) {
+            parsed.forEach(r => {
+              upsertRate(r.publication_date, r.currency_code, r.indicative_rate, r.tt_buying_rate, r.tt_selling_rate);
+              totalUpdated++;
+            });
+            syncSuccess = true;
+            break;
+          }
+        } catch (err) {
+          console.warn(`Proxy ${proxy} error:`, err);
+        }
+      }
+
+      btn.disabled = false;
+      icon.classList.remove('animate-spin');
+      txt.textContent = 'Sync CBSL Rates';
+
+      if (syncSuccess && totalUpdated > 0) {
+        persistDatabase();
+        addAuditLog('CLIENT_WEB_SYNC', 'SUCCESS', targetDate, targetDate, totalUpdated, `Synced ${totalUpdated} currency observations directly from CBSL.`);
+        showToast(`CBSL Sync Successful! Updated ${totalUpdated} observations.`, 'success');
+        refreshAppView();
+      } else {
+        addAuditLog('CLIENT_WEB_SYNC', 'OFFLINE / NOTICE', targetDate, null, 0, 'Public CORS bridge blocked or rate-limited. Preserved cached history intact.');
+        showToast('Live CORS fetch blocked by network. You can use the "Update / Paste" button to input or paste today\'s rates instantly.', 'warning');
+      }
+    }
+
+    // HTML Table Parser for CBSL Overview / Form Pages
+    function parseCBSLOverviewHTML(html, defaultDate) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const results = [];
+
+      // Look for tables
+      const tables = doc.querySelectorAll('table');
+      tables.forEach(table => {
+        const rows = table.querySelectorAll('tr');
+        rows.forEach(row => {
+          const text = row.innerText.trim();
+          OFFICIAL_CURRENCIES.forEach(curr => {
+            const hasCurrency = text.includes(curr.code) || text.includes(curr.name) || text.includes(curr.tt_label) || text.includes(curr.ind_label);
+            if (hasCurrency) {
+              const cells = Array.from(row.querySelectorAll('td, th')).map(c => c.innerText.trim().replace(/,/g, ''));
+              // Look for floating point numbers
+              const numbers = [];
+              cells.forEach(c => {
+                const val = parseFloat(c);
+                if (!isNaN(val) && val > 0 && /^\d+(\.\d+)?$/.test(c)) {
+                  numbers.push(val);
+                }
+              });
+
+              if (numbers.length >= 2) {
+                // Determine date if present in first cell
+                let rowDate = defaultDate;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(cells[0])) {
+                  rowDate = cells[0];
+                }
+
+                // If 3 numbers: Indicative, Buy, Sell or Buy, Sell, Indicative
+                let ind = null, buy = null, sell = null;
+                if (numbers.length === 2) {
+                  buy = Math.min(numbers[0], numbers[1]);
+                  sell = Math.max(numbers[0], numbers[1]);
+                } else if (numbers.length >= 3) {
+                  ind = numbers[0];
+                  buy = numbers[1];
+                  sell = numbers[2];
+                  if (buy > sell) { const tmp = buy; buy = sell; sell = tmp; }
+                }
+
+                results.push({
+                  publication_date: rowDate,
+                  currency_code: curr.code,
+                  indicative_rate: ind,
+                  tt_buying_rate: buy,
+                  tt_selling_rate: sell
+                });
+              }
+            }
+          });
+        });
+      });
+
+      return results;
+    }
+
+    // Manual Form Entry & Smart Paste Handlers
+    function openManualInputModal() {
+      document.getElementById('manualPubDate').value = getColomboDateString();
+      renderManualFormRows();
+      document.getElementById('manualInputModal').classList.remove('hidden');
+    }
+
+    function closeManualInputModal() {
+      document.getElementById('manualInputModal').classList.add('hidden');
+    }
+
+    function switchManualTab(tab) {
+      document.getElementById('tabContentForm').classList.add('hidden');
+      document.getElementById('tabContentPaste').classList.add('hidden');
+      document.getElementById('tabContentBackup').classList.add('hidden');
+
+      document.getElementById('tabBtnForm').className = 'font-medium text-slate-500 hover:text-slate-800 pb-1';
+      document.getElementById('tabBtnPaste').className = 'font-medium text-slate-500 hover:text-slate-800 pb-1';
+      document.getElementById('tabBtnBackup').className = 'font-medium text-slate-500 hover:text-slate-800 pb-1';
+
+      if (tab === 'form') {
+        document.getElementById('tabContentForm').classList.remove('hidden');
+        document.getElementById('tabBtnForm').className = 'font-bold text-brand-navy border-b-2 border-brand-navy pb-1';
+      } else if (tab === 'paste') {
+        document.getElementById('tabContentPaste').classList.remove('hidden');
+        document.getElementById('tabBtnPaste').className = 'font-bold text-brand-navy border-b-2 border-brand-navy pb-1';
+      } else {
+        document.getElementById('tabContentBackup').classList.remove('hidden');
+        document.getElementById('tabBtnBackup').className = 'font-bold text-brand-navy border-b-2 border-brand-navy pb-1';
+      }
+    }
+
+    function renderManualFormRows() {
+      const tbody = document.getElementById('manualRateFormBody');
+      tbody.innerHTML = '';
+      const summary = getLatestSummary();
+
+      OFFICIAL_CURRENCIES.forEach(curr => {
+        const existing = summary.currencies.find(c => c.currency_code === curr.code) || {};
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-2 font-bold text-slate-800">${curr.code} <span class="text-[10px] text-slate-400 font-sans block">${curr.name}</span></td>
+          <td class="px-3 py-2">
+            <input type="number" step="0.0001" min="0.0001" id="m_ind_${curr.code}" value="${existing.indicative_rate || ''}" placeholder="e.g. 332.7600" class="w-full border border-slate-300 rounded px-2 py-1 text-xs font-mono-numbers focus:border-brand-navy">
+          </td>
+          <td class="px-3 py-2">
+            <input type="number" step="0.0001" min="0.0001" id="m_buy_${curr.code}" value="${existing.tt_buying_rate || ''}" placeholder="e.g. 328.3700" class="w-full border border-slate-300 rounded px-2 py-1 text-xs font-mono-numbers focus:border-brand-navy">
+          </td>
+          <td class="px-3 py-2">
+            <input type="number" step="0.0001" min="0.0001" id="m_sell_${curr.code}" value="${existing.tt_selling_rate || ''}" placeholder="e.g. 337.2700" class="w-full border border-slate-300 rounded px-2 py-1 text-xs font-mono-numbers focus:border-brand-navy">
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function saveManualFormRates() {
+      const pubDate = document.getElementById('manualPubDate').value;
+      if (!pubDate) {
+        showToast('Please select a publication date.', 'error');
+        return;
+      }
+
+      let updatedCount = 0;
+      const errors = [];
+
+      OFFICIAL_CURRENCIES.forEach(curr => {
+        const indVal = parseFloat(document.getElementById(`m_ind_${curr.code}`).value);
+        const buyVal = parseFloat(document.getElementById(`m_buy_${curr.code}`).value);
+        const sellVal = parseFloat(document.getElementById(`m_sell_${curr.code}`).value);
+
+        const ind = !isNaN(indVal) && indVal > 0 ? indVal : null;
+        const buy = !isNaN(buyVal) && buyVal > 0 ? buyVal : null;
+        const sell = !isNaN(sellVal) && sellVal > 0 ? sellVal : null;
+
+        if (ind !== null || buy !== null || sell !== null) {
+          try {
+            upsertRate(pubDate, curr.code, ind, buy, sell, 'Manual Audited Verification');
+            updatedCount++;
+          } catch (err) {
+            errors.push(`${curr.code}: ${err.message}`);
+          }
+        }
+      });
+
+      if (errors.length > 0) {
+        showToast(`Validation error: ${errors[0]}`, 'error');
+        return;
+      }
+
+      if (updatedCount === 0) {
+        showToast('No rates were entered.', 'warning');
+        return;
+      }
+
+      persistDatabase();
+      addAuditLog('MANUAL_ENTRY', 'SUCCESS', pubDate, pubDate, updatedCount, `Manually updated ${updatedCount} official currency records for ${pubDate}.`);
+      showToast(`Successfully saved ${updatedCount} verified currency records!`, 'success');
+      closeManualInputModal();
+      refreshAppView();
+    }
+
+    // Smart Text Paste Parser
+    function parseSmartPasteText() {
+      const text = document.getElementById('smartPasteText').value;
+      if (!text || text.trim().length === 0) {
+        showToast('Please paste CBSL table text first.', 'warning');
+        return;
+      }
+
+      const lines = text.split('\n');
+      let foundCount = 0;
+      const targetDate = document.getElementById('manualPubDate').value || getColomboDateString();
+
+      lines.forEach(line => {
+        const cleanLine = line.replace(/,/g, ' ').replace(/\t/g, ' ');
+        OFFICIAL_CURRENCIES.forEach(curr => {
+          if (cleanLine.includes(curr.code) || cleanLine.toLowerCase().includes(curr.tt_label.toLowerCase()) || cleanLine.toLowerCase().includes(curr.ind_label.toLowerCase())) {
+            // Find all numbers in line
+            const matches = cleanLine.match(/\b\d+(\.\d+)?\b/g);
+            if (matches && matches.length >= 2) {
+              const nums = matches.map(m => parseFloat(m)).filter(n => n > 0 && n < 100000);
+              if (nums.length >= 2) {
+                let ind = null, buy = null, sell = null;
+                if (nums.length === 2) {
+                  buy = Math.min(nums[0], nums[1]);
+                  sell = Math.max(nums[0], nums[1]);
+                } else if (nums.length >= 3) {
+                  ind = nums[0];
+                  buy = nums[1];
+                  sell = nums[2];
+                  if (buy > sell) { const t = buy; buy = sell; sell = t; }
+                }
+
+                // Populate into form inputs
+                if (document.getElementById(`m_ind_${curr.code}`) && ind) document.getElementById(`m_ind_${curr.code}`).value = ind;
+                if (document.getElementById(`m_buy_${curr.code}`) && buy) document.getElementById(`m_buy_${curr.code}`).value = buy;
+                if (document.getElementById(`m_sell_${curr.code}`) && sell) document.getElementById(`m_sell_${curr.code}`).value = sell;
+                foundCount++;
+              }
+            }
+          }
+        });
+      });
+
+      if (foundCount > 0) {
+        showToast(`Extracted rates for ${foundCount} currencies! Switch to Direct Form Entry to review & save.`, 'success');
+        switchManualTab('form');
+      } else {
+        showToast('Could not automatically parse currencies from pasted text. Please verify formatting or use Direct Form Entry.', 'warning');
+      }
+    }
+
+    // JSON Backup Export & Import
+    function exportJsonBackup() {
+      const payload = {
+        app: "HIPG FX App",
+        export_timestamp_slst: getColomboTimestampString(),
+        rates: Object.values(dbRates),
+        audit_logs: dbAuditLogs
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `HIPG_FX_App_Backup_${getColomboDateString()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('JSON Backup downloaded cleanly.', 'success');
+    }
+
+    function importJsonBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const data = JSON.parse(evt.target.result);
+          if (data && data.rates && Array.isArray(data.rates)) {
+            let count = 0;
+            data.rates.forEach(r => {
+              if (r.publication_date && r.currency_code && WHITELIST_CODES.has(r.currency_code)) {
+                const k = `${r.publication_date}_${r.currency_code}`;
+                dbRates[k] = r;
+                count++;
+              }
+            });
+            if (data.audit_logs && Array.isArray(data.audit_logs)) {
+              dbAuditLogs = [...data.audit_logs, ...dbAuditLogs].slice(0, 50);
+            }
+            persistDatabase();
+            showToast(`Imported ${count} verified records from backup!`, 'success');
+            closeManualInputModal();
+            refreshAppView();
+          } else {
+            showToast('Invalid backup JSON schema.', 'error');
+          }
+        } catch (err) {
+          showToast(`Import failed: ${err.message}`, 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Multi-Sheet SheetJS Excel Export (.xlsx)
+    function downloadMultiSheetExcel() {
+      showToast('Generating official 6-sheet Excel workbook...', 'info');
+      try {
+        const summary = getLatestSummary();
+        const wb = XLSX.utils.book_new();
+
+        // 1. Executive Summary Sheet
+        const execSummary = [
+          { "Metric": "Application", "Value": "HIPG Finance Official CBSL FX Rate App (Cloud Edition)" },
+          { "Metric": "Colombo Business Date (SLST)", "Value": summary.colombo_business_date },
+          { "Metric": "Latest Official CBSL Publication Date", "Value": summary.latest_publication_date || "Awaiting Publication" },
+          { "Metric": "Publication Status", "Value": summary.is_today_published ? "Officially Published" : "Awaiting CBSL Publication" },
+          { "Metric": "Verified Currencies Coverage", "Value": summary.coverage_text },
+          { "Metric": "Selected Benchmark Currency", "Value": currentCurrency },
+          { "Metric": "Official Sources", "Value": "CBSL exrates_results.php (Indicative) & exrates_resultstt.php (TT Rates)" },
+          { "Metric": "Calculation Standard", "Value": "SUM(observations) / n (Zero carry-forward, zero synthetic rates)" }
+        ];
+        const wsExec = XLSX.utils.json_to_sheet(execSummary);
+        XLSX.utils.book_append_sheet(wb, wsExec, "Executive Summary");
+
+        // 2. DAILY Sheet
+        const dailyRecords = Object.values(dbRates)
+          .filter(r => r.currency_code === currentCurrency)
+          .sort((a, b) => b.publication_date.localeCompare(a.publication_date))
+          .map(r => ({
+            "Publication Date": r.publication_date,
+            "Currency": currentCurrency,
+            "Indicative Rate (LKR)": r.indicative_rate !== null ? r.indicative_rate : "Not Available",
+            "TT Buying Rate (LKR)": r.tt_buying_rate !== null ? r.tt_buying_rate : "Not Available",
+            "TT Selling Rate (LKR)": r.tt_selling_rate !== null ? r.tt_selling_rate : "Not Available",
+            "Inverse Rate (1/Ind)": r.indicative_rate ? Number((1.0 / r.indicative_rate).toFixed(6)) : "Not Available",
+            "Verification Status": r.verification_status
+          }));
+        const wsDaily = XLSX.utils.json_to_sheet(dailyRecords);
+        XLSX.utils.book_append_sheet(wb, wsDaily, "DAILY");
+
+        // 3. WEEKLY Sheet
+        const weeklyRows = getRollupData(currentCurrency, 'weekly').map(w => ({
+          "ISO Week": w.period_label,
+          "Observation Count (n)": w.observation_count,
+          "Start Date": w.start_date,
+          "End Date": w.end_date,
+          "Average Indicative (LKR)": w.avg_indicative !== null ? w.avg_indicative : "Not Available",
+          "Opening Indicative": w.open_indicative !== null ? w.open_indicative : "Not Available",
+          "Closing Indicative": w.close_indicative !== null ? w.close_indicative : "Not Available",
+          "High Indicative": w.high_indicative !== null ? w.high_indicative : "Not Available",
+          "Low Indicative": w.low_indicative !== null ? w.low_indicative : "Not Available",
+          "Average TT Buying (LKR)": w.avg_tt_buying !== null ? w.avg_tt_buying : "Not Available",
+          "Average TT Selling (LKR)": w.avg_tt_selling !== null ? w.avg_tt_selling : "Not Available"
+        }));
+        const wsWeekly = XLSX.utils.json_to_sheet(weeklyRows);
+        XLSX.utils.book_append_sheet(wb, wsWeekly, "WEEKLY");
+
+        // 4. MONTHLY Sheet
+        const monthlyRows = getRollupData(currentCurrency, 'monthly').map(m => ({
+          "Calendar Month": m.period_label,
+          "Observation Count (n)": m.observation_count,
+          "Start Date": m.start_date,
+          "End Date": m.end_date,
+          "Average Indicative (LKR)": m.avg_indicative !== null ? m.avg_indicative : "Not Available",
+          "Opening Indicative": m.open_indicative !== null ? m.open_indicative : "Not Available",
+          "Closing Indicative": m.close_indicative !== null ? m.close_indicative : "Not Available",
+          "High Indicative": m.high_indicative !== null ? m.high_indicative : "Not Available",
+          "Low Indicative": m.low_indicative !== null ? m.low_indicative : "Not Available",
+          "Average TT Buying (LKR)": m.avg_tt_buying !== null ? m.avg_tt_buying : "Not Available",
+          "Average TT Selling (LKR)": m.avg_tt_selling !== null ? m.avg_tt_selling : "Not Available"
+        }));
+        const wsMonthly = XLSX.utils.json_to_sheet(monthlyRows);
+        XLSX.utils.book_append_sheet(wb, wsMonthly, "MONTHLY");
+
+        // 5. YEARLY Sheet
+        const yearlyRows = getRollupData(currentCurrency, 'yearly').map(y => ({
+          "Financial Year": y.period_label,
+          "Observation Count (n)": y.observation_count,
+          "Start Date": y.start_date,
+          "End Date": y.end_date,
+          "Average Indicative (LKR)": y.avg_indicative !== null ? y.avg_indicative : "Not Available",
+          "Opening Indicative": y.open_indicative !== null ? y.open_indicative : "Not Available",
+          "Closing Indicative": y.close_indicative !== null ? y.close_indicative : "Not Available",
+          "High Indicative": y.high_indicative !== null ? y.high_indicative : "Not Available",
+          "Low Indicative": y.low_indicative !== null ? y.low_indicative : "Not Available",
+          "Average TT Buying (LKR)": y.avg_tt_buying !== null ? y.avg_tt_buying : "Not Available",
+          "Average TT Selling (LKR)": y.avg_tt_selling !== null ? y.avg_tt_selling : "Not Available"
+        }));
+        const wsYearly = XLSX.utils.json_to_sheet(yearlyRows);
+        XLSX.utils.book_append_sheet(wb, wsYearly, "YEARLY");
+
+        // 6. All 9 Currencies Matrix Sheet
+        const all9Rows = summary.currencies.map(c => ({
+          "Currency Code": c.currency_code,
+          "Currency Name": c.currency_name,
+          "Publication Date": c.publication_date,
+          "Indicative Rate (LKR)": c.indicative_rate !== null ? c.indicative_rate : "Not Available",
+          "TT Buying Rate (LKR)": c.tt_buying_rate !== null ? c.tt_buying_rate : "Not Available",
+          "TT Selling Rate (LKR)": c.tt_selling_rate !== null ? c.tt_selling_rate : "Not Available",
+          "Inverse Rate (1/Ind)": c.inverse_rate !== null ? c.inverse_rate : "Not Available",
+          "Verification Status": c.verification_status
+        }));
+        const wsAll = XLSX.utils.json_to_sheet(all9Rows);
+        XLSX.utils.book_append_sheet(wb, wsAll, "All_9_CBSL_Currencies");
+
+        const dateStamp = summary.latest_publication_date || summary.colombo_business_date;
+        const fileName = `HIPG_Finance_CBSL_Official_FX_Rates_${dateStamp}_${currentCurrency}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast(`Downloaded: ${fileName}`, 'success');
+      } catch (err) {
+        showToast(`Excel export failed: ${err.message}`, 'error');
+      }
+    }
+
+    // Modal Control & Colleague Briefing
+    function openAuditModal() {
+      renderAuditLogs();
+      document.getElementById('auditModal').classList.remove('hidden');
+    }
+    function closeAuditModal() {
+      document.getElementById('auditModal').classList.add('hidden');
+    }
+
+    function renderAuditLogs() {
+      const tbody = document.getElementById('auditLogTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (dbAuditLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-400">No audit logs recorded yet.</td></tr>';
+        return;
+      }
+      dbAuditLogs.slice(0, 25).forEach(l => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-1.5 text-slate-700">${l.sync_timestamp_slst}</td>
+          <td class="px-3 py-1.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">${l.trigger_type}</span></td>
+          <td class="px-3 py-1.5 font-bold ${l.retrieval_status === 'SUCCESS' ? 'text-emerald-600' : 'text-amber-600'}">${l.retrieval_status}</td>
+          <td class="px-3 py-1.5">${l.target_date_slst}</td>
+          <td class="px-3 py-1.5">${l.latest_published_date || '--'}</td>
+          <td class="px-3 py-1.5">${l.currencies_updated}</td>
+          <td class="px-3 py-1.5 text-slate-600 max-w-xs truncate" title="${l.message}">${l.message}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openBriefingModal() {
+      const summary = getLatestSummary();
+      const pubDate = summary.latest_publication_date || summary.colombo_business_date;
+      const syncTime = summary.last_sync ? summary.last_sync.sync_timestamp_slst : 'Pre-loaded verified CBSL store';
+      const liveAppUrl = window.location.href.split('#')[0];
+
+      let text = `*HIPG FINANCE — OFFICIAL CBSL FX RATE BRIEFING*\n`;
+      text += `Colombo Business Date: ${summary.colombo_business_date} (SLST)\n`;
+      text += `Official CBSL Publication Date: ${pubDate}\n`;
+      text += `Status: ${summary.is_today_published ? 'Officially Published' : 'Awaiting Publication'}\n`;
+      text += `Last Sync Audit: ${syncTime}\n`;
+      text += `-------------------------------------------\n`;
+      text += `CURRENCY | INDICATIVE | TT BUY    | TT SELL\n`;
+      text += `-------------------------------------------\n`;
+
+      summary.currencies.forEach(c => {
+        const ind = c.indicative_rate !== null ? c.indicative_rate.toFixed(4) : 'N/A';
+        const buy = c.tt_buying_rate !== null ? c.tt_buying_rate.toFixed(4) : 'N/A';
+        const sell = c.tt_selling_rate !== null ? c.tt_selling_rate.toFixed(4) : 'N/A';
+        text += `${c.currency_code.padEnd(8)} | ${ind.padStart(10)} | ${buy.padStart(9)} | ${sell.padStart(9)}\n`;
+      });
+
+      text += `-------------------------------------------\n`;
+      text += `*Strict Rule:* CBSL official actual observations only. No synthetic/carry-forward rates.\n`;
+      text += `HIPG FX App Portal: ${liveAppUrl}`;
+
+      document.getElementById('briefingText').value = text;
+      document.getElementById('briefingModal').classList.remove('hidden');
+    }
+
+    function closeBriefingModal() {
+      document.getElementById('briefingModal').classList.add('hidden');
+    }
+
+    function copyBriefingToClipboard() {
+      const textarea = document.getElementById('briefingText');
+      textarea.select();
+      navigator.clipboard.writeText(textarea.value).then(() => {
+        const btn = document.getElementById('btnCopyBriefing');
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<span>Copied to Clipboard!</span>`;
+        btn.classList.replace('bg-brand-amber', 'bg-emerald-600');
+        btn.classList.add('text-white');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.replace('bg-emerald-600', 'bg-brand-amber');
+          btn.classList.remove('text-white');
+        }, 2000);
+      });
+    }
+
+    // App Initialization on DOM Ready
+    document.addEventListener('DOMContentLoaded', () => {
+      initDatabase();
+      initChart();
+      refreshAppView();
+    });
+  </script>
+</body>
+</html>

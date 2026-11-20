@@ -1,0 +1,21 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Test databases
+test_*.db
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+*.lnk
+.idea/
+.vscode/
